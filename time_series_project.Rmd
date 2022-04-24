@@ -17,6 +17,7 @@ indices <- ts(data[,"indices"], frequency=12, start=c(1990,1))
 
 dindices <- diff(indices, 1) # différence première
 #plot(cbind(indices, dindices))
+#xm.source <- zoo(data[[1]])
 ```
 
 
