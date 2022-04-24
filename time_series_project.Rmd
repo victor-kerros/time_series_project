@@ -7,30 +7,71 @@
 ```{r packages}
 require(zoo)
 require(tseries)
+library(fUnitRoots)
 ```
 
 ``` {r import dataset}
 datafile <- "IPI_alimentaire.csv"
 data <- read.csv(datafile, sep=";")
-datats <- ts(data[,"indices"], frequency=12, start=c(1990,1))
+indices <- ts(data[,"indices"], frequency=12, start=c(1990,1))
+
+dindices <- diff(indices, 1) # différence première
+#plot(cbind(indices, dindices))
 ```
 
+
 ```{r plot}
-plot.ts(datats, type="l", lwd=1, col="red", xlab="date", ylab="indice")
+plot.ts(datats, type="l", lwd=1, col="blue", xlab="date", ylab="indice")
 ```
 
 ### Q2 - Stationnarisation de la série
 
 ``` {r log}
-logdatats <- log(data[,"indices"])
-logdatats <- ts(logdatats, frequency=12, start = c(1990,1))
-plot.ts(logdatats, type="l", lwd=1, col="red", xlab="date", ylab="indice")
+logindices <- log(data[,"indices"])
+logindices <- ts(logindices, frequency=12, start = c(1990,1))
+plot.ts(logindices, type="l", lwd=1, col="red", xlab="date", ylab="indice")
+```
+
+``` {r desais}
+df_desais <- decompose(logindices)
+plot(df_desais)
+```
+
+``` {r plot desais}
+logindices_desais <- logindices - df_desais$seasonal
+plot.ts(logindices_desais,type="l",lwd=1, col="red", xlab="Time", ylab="Indice")
+```
+
+```{r acf}
+acf(logindices) # trace l’autocorrélogramme total
+```
+```{r desaison}
+desaison <- logindices - lag(logindices, -12) # retire le 12ème retard
+par(mfrow = c(1,2)) # dispose les graphiques en 1 colonne et 2 lignes
+plot(desaison)
+acf(desaison)
+```
+
+```{r (p)acf desaison}
+acf(desaison) # trace les fonctions d’autocorrélation totale
+pacf(desaison) # trace les fonctions d’autocorrélation partielle
+```
+
+``` {r plot desais}
+urdfTest(logindices_desais)
 ```
 
 ### Q3 - Représentation graphique de la série
 
 ``` {r}
+# Création de la série différenciée
+logindicesdiff1 <- diff(logindices_desais, differences=1)
+# Représentation graphique de la série différenciée
+plot.ts(logindicesdiff1,type="l",lwd=1, col="red", xlab="Time", ylab="Indice")
+```
 
+``` {r}
+urdfTest(logindicesdiff1)
 ```
 
 ## Partie II : Modèles ARMA
