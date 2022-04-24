@@ -4,14 +4,27 @@
 
 ### Q1 - Présentation de la série
 
-``` {r}
+```{r packages}
+require(zoo)
+require(tseries)
+```
 
+``` {r import dataset}
+datafile <- "IPI_alimentaire.csv"
+data <- read.csv(datafile, sep=";")
+datats <- ts(data[,"indices"], frequency=12, start=c(1990,1))
+```
+
+```{r plot}
+plot.ts(datats, type="l", lwd=1, col="red", xlab="date", ylab="indice")
 ```
 
 ### Q2 - Stationnarisation de la série
 
-``` {r}
-
+``` {r log}
+logdatats <- log(data[,"indices"])
+logdatats <- ts(logdatats, frequency=12, start = c(1990,1))
+plot.ts(logdatats, type="l", lwd=1, col="red", xlab="date", ylab="indice")
 ```
 
 ### Q3 - Représentation graphique de la série
