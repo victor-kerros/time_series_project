@@ -11,7 +11,7 @@ library(fUnitRoots)
 ```
 
 ``` {r import dataset}
-datafile <- "IPI_alimentaire.csv"
+datafile <- "vin_valeurs_mensuelles.csv"
 data <- read.csv(datafile, sep=";")
 indices <- ts(data[,"indices"], frequency=12, start=c(1990,1))
 
@@ -22,7 +22,11 @@ dindices <- diff(indices, 1) # différence première
 
 
 ```{r plot}
-plot.ts(datats, type="l", lwd=1, col="blue", xlab="date", ylab="indice")
+plot.ts(indices, type="l", lwd=1, col="blue", xlab="date", ylab="indices")
+```
+
+```{r plot dindices}
+plot.ts(dindices, type="l", lwd=1, col="blue", xlab="date", ylab="dindices")
 ```
 
 ### Q2 - Stationnarisation de la série
