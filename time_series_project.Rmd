@@ -11,22 +11,24 @@ library(fUnitRoots)
 ```
 
 ``` {r import dataset}
-datafile <- "vin_valeurs_mensuelles.csv"
+datafile <- "alim_valeurs_mensuelles.csv"
 data <- read.csv(datafile, sep=";")
 indices <- ts(data[,"indices"], frequency=12, start=c(1990,1))
-
-dindices <- diff(indices, 1) # différence première
-#plot(cbind(indices, dindices))
-#xm.source <- zoo(data[[1]])
 ```
 
 
-```{r plot}
+```{r plot indices}
 plot.ts(indices, type="l", lwd=1, col="blue", xlab="date", ylab="indices")
 ```
 
+``` {r decompose and acf}
+plot(decompose(indices)) ; acf(indices)
+```
+
 ```{r plot dindices}
+dindices <- diff(indices, 1) # différence première
 plot.ts(dindices, type="l", lwd=1, col="blue", xlab="date", ylab="dindices")
+acf(dindices)
 ```
 
 ### Q2 - Stationnarisation de la série
@@ -34,7 +36,7 @@ plot.ts(dindices, type="l", lwd=1, col="blue", xlab="date", ylab="dindices")
 ``` {r log}
 logindices <- log(data[,"indices"])
 logindices <- ts(logindices, frequency=12, start = c(1990,1))
-plot.ts(logindices, type="l", lwd=1, col="red", xlab="date", ylab="indice")
+plot.ts(logindices, type="l", lwd=1, col="red", xlab="date", ylab="logindices")
 ```
 
 ``` {r desais}
@@ -47,9 +49,14 @@ logindices_desais <- logindices - df_desais$seasonal
 plot.ts(logindices_desais,type="l",lwd=1, col="red", xlab="Time", ylab="Indice")
 ```
 
-```{r acf}
-acf(logindices) # trace l’autocorrélogramme total
+``` {r plot desais}
+urdfTest(logindices_desais)
 ```
+
+```{r acf}
+acf(logindices_desais) # trace l’autocorrélogramme total
+```
+
 ```{r desaison}
 desaison <- logindices - lag(logindices, -12) # retire le 12ème retard
 par(mfrow = c(1,2)) # dispose les graphiques en 1 colonne et 2 lignes
