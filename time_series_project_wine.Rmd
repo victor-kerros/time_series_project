@@ -19,7 +19,7 @@ library(fUnitRoots)
 Link : https://www.insee.fr/fr/statistiques/serie/010537307
 
 ``` {r import dataset}
-datafile <- "biere_valeurs_mensuelles.csv"
+datafile <- "spirit_valeurs_mensuelles.csv"
 data <- read.csv(datafile, sep=";")
 ```
 
@@ -126,6 +126,7 @@ pharm = 11 lags
 alim = 8 lags
 elec = 21 lags
 biere = 9 lags
+petrole = 12 lags
 
 ```{r dlogwine adf test}
 dlogwine.source <- diff(logwine.source, 1)
@@ -144,13 +145,18 @@ alim : 6 lags
 elec : 12 lags
 wine = 12 lags
 biere = 8 lags
-
+petrole = 10 lags
+spirit = 7 lags
 
 ``` {r acf and pacf dlogwine}
 acf(dlogwine); pacf(dlogwine)
 ```
 
+qspirit = 12
+pspirit = 12
 
+qpetrole = 13
+ppetrole = 11
 
 qwine = 12 (3)
 pwine 12 (7)
