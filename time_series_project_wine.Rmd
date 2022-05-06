@@ -203,6 +203,23 @@ AICs==min(AICs)
 BICs
 BICs==min(BICs)
 ```
+``` {r best models alim}
+# on conserve les modèles ARIMA qui minimisent l'AIC et BIC
+arima011 <- arima(logwine,c(0,1,1),include.mean=F)
+tarima011 <- arima011$coef / sqrt(diag(arima011$var.coef))
+pvarima011 <- (1-pnorm(abs(tarima513)))*2
+pvarima011["ma1"]
+Qtests(arima011$residuals,24,fitdf=1)
+
+arima111 <- arima(logwine,c(1,1,1),include.mean=F)
+tarima111 <- arima111$coef / sqrt(diag(arima111$var.coef))
+pvarima111 <- (1-pnorm(abs(tarima111)))*2
+pvarima111["ar1"]
+pvarima111["ma1"]
+Qtests(arima111$residuals,24,fitdf=1)
+```
+
+
 ``` {r best models wine}
 # on conserve les modèles ARIMA qui minimisent l'AIC et BIC
 arima513 <- arima(logwine,c(5,1,3),include.mean=F)
