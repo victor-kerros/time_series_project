@@ -19,9 +19,8 @@ library(fUnitRoots)
 Link : https://www.insee.fr/fr/statistiques/serie/010537307
 
 ``` {r import dataset}
-datafile <- "vin_valeurs_mensuelles.csv"
+datafile <- "biere_valeurs_mensuelles.csv"
 data <- read.csv(datafile, sep=";")
-# indices <- ts(data[,"indices"], frequency=12, start=c(1990,1))
 ```
 
 ``` {r create dates}
@@ -29,7 +28,7 @@ string_dates <- as.character(data$dates)
 # premiere et la derniere date pour définir les indices des dates
 string_dates[1]; string_dates[length(string_dates)]
 # on définit les dates de la série
-dates <- as.yearmon(seq(from=1990+0/12, to=2022+3/12, by=1/12))
+dates <- as.yearmon(seq(from=1990+0/12, to=2022+1/12, by=1/12))
 ```
 
 ``` {r create ts wine and dwine with zoo}
@@ -55,13 +54,13 @@ decompose_logwine.source <- decompose(logwine.source)
 plot(decompose_logwine.source)
 ```
 
-```{r plot elec.source}
-plot(logwine.source, type="l", lwd=1, col="blue", main="logwine.source", xlab="dates", ylab="values" )
+```{r plot logwine.source}
+plot(logwine.source, type="l", lwd=1, col="blue", main="logwine.source", xlab="dates", ylab="values")
 ```
 
 ### Q2 - Stationnarisation de la série
 
-On constate sur le graphique ci-dessus une tendance linéaire positive pour la série tronquée en niveau.
+On constate sur le graphique ci-dessus une tendance linéaire positive pour la série en niveau.
 
 On vérifie d'abord la tendance linéaire en effectuant une régression linéaire des valeurs de la série tronquée sur les dates.
 
@@ -77,14 +76,99 @@ On cherche à déterminer si la série est stationnaire ou non. Pour cela, on so
 
 ```{r logwine adf test}
 # cas avec constante et tendance
-adfTest(logwine, lag=0, type="ct")
+adf_logwine <- adfTest(logwine, lag=0, type="ct")
+adf_logwine
+#pp.test(wine)
 ```
 
-``` {r decompose and pacf logwine}
-decompose_logwine <- decompose(logwine)
-plot(decompose_logwine) ; 
-pacf(logwine)
+D'après le test ADF, la série en niveau est stationnaire. Seulement, pour que le test soit valide, il faut que les résidus de la régression ne soient pas autocorrélés.
+On teste donc l’autocorrélation des résidus dans la régression sur une période de deux ans.
+
+``` {r test residuals autocorrelation : cf. TD4}
+
+Qtests <- function(series, k, fitdf=0){
+  pvals <- apply(matrix(1:k), 1, FUN=function(l){
+  pval <- if (l<=fitdf) NA else Box.test(series, lag=l, type="Ljung-Box", fitdf=fitdf)$p.value
+  return(c("lag"=l,"pval"=pval))
+  })
+  return(t(pvals))
+}
+
+Qtests(adf_logwine@test$lm$residuals, 24, length(adf_logwine@test$lm$coefficients))
 ```
+L’absence d’autocorrélation des résidus est rejetée, le test ADF avec aucun
+retard n’est donc pas valide. On ajoute donc des retards jusqu’à ce que les résidus ne soient plus autocorrélés.
+
+```{r logwine adf test : cf. TD5}
+adfTest_valid <- function(series,kmax,type){ 
+# tests ADF jusqu’à des résidus non autocorrélés
+k <- 0
+noautocorr <- 0
+while (noautocorr==0){
+cat(paste0("ADF with ",k, " lags: residuals OK? "))
+adf <- adfTest(series,lags=k,type=type)
+pvals <- Qtests(adf@test$lm$residuals,24,fitdf=length(adf@test$lm$coefficients))[,2]
+if (sum(pvals<0.05,na.rm=T) == 0) {
+noautocorr <- 1; cat("OK \n")}
+else cat("nope \n")
+k <- k + 1
+}
+return(adf)
+}
+adf <- adfTest_valid(logwine, 24, "ct")
+```
+
+```{r show adf}
+adf
+```
+wine = 21 lags
+pharm = 11 lags
+alim = 8 lags
+elec = 21 lags
+biere = 9 lags
+
+```{r dlogwine adf test}
+dlogwine.source <- diff(logwine.source, 1)
+dlogwine <- diff(logwine, 1)
+plot(dlogwine.source, type="l", lwd=1, col="blue", main="dlogwine.source", xlab="dates", ylab="values")
+adf_dlogwine <- adfTest(dlogwine, lag=0, type="nc")
+Qtests(adf_dlogwine@test$lm$residuals, 24, length(adf_dlogwine@test$lm$coefficients))
+```
+
+```{r dlogwine adf test}
+adf <- adfTest_valid(dlogwine,24,"nc")
+adf
+```
+pharm : 10 lags
+alim : 6 lags
+elec : 12 lags
+wine = 12 lags
+biere = 8 lags
+
+
+``` {r acf and pacf dlogwine}
+acf(dlogwine); pacf(dlogwine)
+```
+
+
+
+qwine = 12 (3)
+pwine 12 (7)
+
+qelec = 24 (7)
+pelec = 24 (7)
+
+qalim = 24 (2 / 7)
+palim = 7
+
+qbiere = 2
+pbiere = 8
+
+
+
+
+
+
 
 ``` {r dlogwine}
 # dlogwine est la série logwine en différence première
@@ -104,5 +188,3 @@ adfTest(dlogwine, lag=0, type="ct")
 # cas avec constante et tendance
 pp.test(dlogwine)
 ```
-
-
