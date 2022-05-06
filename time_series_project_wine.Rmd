@@ -19,7 +19,7 @@ library(fUnitRoots)
 Link : https://www.insee.fr/fr/statistiques/serie/010537307
 
 ``` {r import dataset}
-datafile <- "spirit_valeurs_mensuelles.csv"
+datafile <- "alim_valeurs_mensuelles.csv"
 data <- read.csv(datafile, sep=";")
 ```
 
@@ -66,7 +66,7 @@ On vérifie d'abord la tendance linéaire en effectuant une régression linéair
 
 ```{r lm}
 truncated_dates <- dates[1:(length(logwine.source)-6)]
-logwine <- logwine.source[1:(length(wine.source)-6)]
+logwine <- logwine.source[1:(length(logwine.source)-6)]
 summary(lm(logwine ~ truncated_dates))
 ```
 
@@ -121,7 +121,7 @@ adf <- adfTest_valid(logwine, 24, "ct")
 ```{r show adf}
 adf
 ```
-wine = 21 lags
+wine = 14 lags
 pharm = 11 lags
 alim = 8 lags
 elec = 21 lags
@@ -132,6 +132,8 @@ petrole = 12 lags
 dlogwine.source <- diff(logwine.source, 1)
 dlogwine <- diff(logwine, 1)
 plot(dlogwine.source, type="l", lwd=1, col="blue", main="dlogwine.source", xlab="dates", ylab="values")
+summary(lm(dlogwine ~ dates[2:(length(logwine.source)-6)]))
+# il n'y a pas de tendance ni de constante
 adf_dlogwine <- adfTest(dlogwine, lag=0, type="nc")
 Qtests(adf_dlogwine@test$lm$residuals, 24, length(adf_dlogwine@test$lm$coefficients))
 ```
@@ -143,7 +145,7 @@ adf
 pharm : 10 lags
 alim : 6 lags
 elec : 12 lags
-wine = 12 lags
+wine = 15 lags
 biere = 8 lags
 petrole = 10 lags
 spirit = 7 lags
@@ -152,14 +154,17 @@ spirit = 7 lags
 acf(dlogwine); pacf(dlogwine)
 ```
 
+qpharm = 11
+ppharm = 12
+
 qspirit = 12
 pspirit = 12
 
 qpetrole = 13
 ppetrole = 11
 
-qwine = 12 (3)
-pwine 12 (7)
+qwine = 14 (4)
+pwine = 14 (3)
 
 qelec = 24 (7)
 pelec = 24 (7)
@@ -169,6 +174,104 @@ palim = 7
 
 qbiere = 2
 pbiere = 8
+
+``` {r pmax and qmax}
+pmax=7; qmax=2
+```
+
+``` {r AIC and BIC}
+# on définit deux matrices vides à remplir avec les valeurs des AICs et BICs
+mat <- matrix(NA, nrow=pmax+1, ncol=qmax+1)
+rownames(mat) <- paste0("p=",0:pmax)
+colnames(mat) <- paste0("q=",0:qmax)
+AICs <- mat
+BICs <- mat
+# on collecte dans pqs toutes les combinaisons possibles de p et q
+pqs <- expand.grid(0:pmax,0:qmax)
+# on boucle sur ces combinaisons
+for (row in 1:dim(pqs)[1]){
+p <- pqs[row,1]
+q <- pqs[row,2]
+# on assigne les scores AICs et BICs
+estim <- try(arima(dlogwine,c(p,0,q),include.mean = F))
+AICs[p+1,q+1] <- if (class(estim)=="try-error") NA else estim$aic
+BICs[p+1,q+1] <- if (class(estim)=="try-error") NA else BIC(estim)
+}
+
+AICs 
+AICs==min(AICs) 
+BICs
+BICs==min(BICs)
+```
+``` {r best models wine}
+# on conserve les modèles ARIMA qui minimisent l'AIC et BIC
+arima513 <- arima(logwine,c(5,1,3),include.mean=F)
+tarima513 <- arima513$coef / sqrt(diag(arima513$var.coef))
+pvarima513 <- (1-pnorm(abs(tarima513)))*2
+pvarima513["ar5"]
+pvarima513["ma3"]
+Qtests(arima513$residuals,24,fitdf=5)
+
+arima111 <- arima(logwine,c(1,1,1),include.mean=F)
+tarima111 <- arima111$coef / sqrt(diag(arima111$var.coef))
+pvarima111 <- (1-pnorm(abs(tarima111)))*2
+pvarima111["ar1"]
+pvarima111["ma1"]
+Qtests(arima111$residuals,24,fitdf=1)
+
+arima313 <- arima(logwine,c(3,1,3),include.mean=F)
+tarima313 <- arima313$coef / sqrt(diag(arima313$var.coef))
+pvarima313 <- (1-pnorm(abs(tarima313)))*2
+pvarima313["ar3"]
+pvarima313["ma3"]
+Qtests(arima313$residuals,24,fitdf=3)
+arima313
+```
+
+
+``` {r which models ?}
+# fonction de test des significativites individuelles des coefficients
+signif <- function(estim){
+  coef <- estim$coef
+  se <- sqrt(diag(estim$var.coef))
+  t <- coef/se
+  pval <- (1-pnorm(abs(t)))*2
+  return(rbind(coef, se, pval))
+}
+
+#fonction pour estimer un ARIMA et en verifier l'ajustement et la validite
+modelchoice <- function(p, q, data=dlogwine, k=24){
+  estim <- try(arima(data, c(p,0,q),optim.control=list(maxit=20000)))
+  if (class(estim)=="try-error") return(c("p"=p,"q"=q,"arsignif"=NA,"masignif"=NA,"resnocorr"=NA, "ok"=NA))
+  arsignif <- if (p==0) NA else signif(estim)[3,p]<=0.05
+  masignif <- if (q==0) NA else signif(estim)[3,p+q]<=0.05
+  resnocorr <- sum(Qtests(estim$residuals,24,length(estim$coef)-1)[,2]<=0.05,na.rm=T)==0
+  checks <- c(arsignif,masignif,resnocorr)
+  ok <- as.numeric(sum(checks,na.rm=T)==(3-sum(is.na(checks))))
+  return(c("p"=p,"q"=q,"arsignif"=arsignif,"masignif"=masignif,"resnocorr"=resnocorr,"ok"=ok))
+}
+
+
+#fonction pour estimer et verifier tous les ARMA(p,q) avec p<=pmax et q<=max
+armamodelchoice <- function(pmax,qmax){
+  pqs <- expand.grid(0:pmax,0:qmax) ; t(apply(matrix(1:dim(pqs)[1]),1,function(row) {
+    p <- pqs[row,1]; q <- pqs[row,2]
+    cat(paste0("Computing ARMA(",p,",",q,") \n"))
+    modelchoice(p,q)
+  }))}
+
+armamodels <- armamodelchoice(pmax,qmax)
+
+```
+
+``` {r select models}
+selec <- armamodels[armamodels[,"ok"]==1&!is.na(armamodels[,"ok"]),] # renvoie les modeles bien ajustes et valides
+selec
+```
+
+
+
+
 
 
 
