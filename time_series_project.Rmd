@@ -5,8 +5,11 @@
 ### Q1 - Présentation de la série
 
 ```{r packages}
+install.packages("zoo")
 require(zoo)
+install.packages("tseries")
 require(tseries)
+install.packages("fUnitRoots")
 library(fUnitRoots)
 ```
 
@@ -14,6 +17,38 @@ library(fUnitRoots)
 datafile <- "alim_valeurs_mensuelles.csv"
 data <- read.csv(datafile, sep=";")
 indices <- ts(data[,"indices"], frequency=12, start=c(1990,1))
+```
+
+``` {r import dates}
+dateschar <- as.character(data$date)
+dateschar[1]; dateschar[length(dateschar)] # affiche la premiere et la derniere date
+dates <- as.yearmon(seq(from=1990+0/12,to=2022+2/12,by=1/12)) #index des dates pour indice
+indice.source <- zoo(data$indice, order.by=dates)
+T <- length(indice.source)
+indice <- indice.source[1:(T-4)] # serie en niveau a laquelle on retire les 4 dernieres dates
+```
+```{r plot indices}
+dindice.source <- diff(indice.source, 1)
+dindice <- diff(indice,1) #serie en difference premiere a partir de la serie privee des 4 dernieres dates
+plot(indice.source) #representation graphique de la serie initiale
+plot(cbind(indice,dindice)) #representation graphique de la serie initiale privee des 4 dernieres observations et de la serie differenciee associee
+```
+```{r lm}
+summary(lm(indice ~ dates[1:(T-4)]))
+```
+```{r adf test}
+adf <- adfTest(indice, lag=0, type="ct") #test ADF dans le cas avec constante et tendance
+adf
+```
+```{r test autocorrélation résidus}
+Qtests <- function(series, k, fitdf=0){
+  pvals <- apply(matrix(1:k), 1, FUN=function(l){
+  pval <- if (l<=fitdf) NA else Box.test(series, lag=l, type="Ljung-Box", fitdf=fitdf)$p.value
+  return(c("lag"=l,"pval"=pval))
+  })
+  return(t(pvals))
+}
+Qtests(adf@test$lm$residuals,24,length(adf@test$lm$coefficients))
 ```
 
 
