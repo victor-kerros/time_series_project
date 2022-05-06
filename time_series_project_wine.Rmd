@@ -1,0 +1,108 @@
+# Projet de Séries temporelles linéaires - 2A ENSAE
+
+## Partie I : Données
+
+### Q1 - Présentation de la série
+
+``` {r import packages}
+# on utilise "zoo" pour formaliser les séries temporelles
+#install.packages("zoo")
+require(zoo)
+# on utilise "tseries" pour diverses fonctions
+#install.packages("tseries")
+require(tseries)
+# on utilise "fUnitRoots" pour les tests de racine unitaire
+#install.packages("fUnitRoots")
+library(fUnitRoots)
+```
+
+Link : https://www.insee.fr/fr/statistiques/serie/010537307
+
+``` {r import dataset}
+datafile <- "vin_valeurs_mensuelles.csv"
+data <- read.csv(datafile, sep=";")
+# indices <- ts(data[,"indices"], frequency=12, start=c(1990,1))
+```
+
+``` {r create dates}
+string_dates <- as.character(data$dates)
+# premiere et la derniere date pour définir les indices des dates
+string_dates[1]; string_dates[length(string_dates)]
+# on définit les dates de la série
+dates <- as.yearmon(seq(from=1990+0/12, to=2022+3/12, by=1/12))
+```
+
+``` {r create ts wine and dwine with zoo}
+# on permute la série sinon elle n'est pas dans le bon sens
+wine.source <- zoo(rev(data$indices), order.by=dates)
+# on enlève les 6 dernières dates à la série en niveau serie
+wine <- wine.source[1:(length(wine.source)-6)]
+# delec est la série en différence première
+dwine.source <- diff(wine.source, 1)
+dwine <- diff(wine, 1)
+```
+
+```{r plot wine.source}
+plot(wine.source, type="l", lwd=1, col="blue", main="wine.source", xlab="dates", ylab="values" )
+```
+
+``` {r decompose and log}
+# on passe au log pour lisser l'hétéroscédasticité
+decompose_wine.source <- decompose(wine.source)
+plot(decompose_wine.source)
+logwine.source <- log(wine.source)
+decompose_logwine.source <- decompose(logwine.source)
+plot(decompose_logwine.source)
+```
+
+```{r plot elec.source}
+plot(logwine.source, type="l", lwd=1, col="blue", main="logwine.source", xlab="dates", ylab="values" )
+```
+
+### Q2 - Stationnarisation de la série
+
+On constate sur le graphique ci-dessus une tendance linéaire positive pour la série tronquée en niveau.
+
+On vérifie d'abord la tendance linéaire en effectuant une régression linéaire des valeurs de la série tronquée sur les dates.
+
+```{r lm}
+truncated_dates <- dates[1:(length(logwine.source)-6)]
+logwine <- logwine.source[1:(length(wine.source)-6)]
+summary(lm(logwine ~ truncated_dates))
+```
+
+Cette régression linéaire confirme la présence d'une tendance linéaire positive dans nos données et d'une constante : p_values < 1 %.
+
+On cherche à déterminer si la série est stationnaire ou non. Pour cela, on souhaite effectuer un test de racine unitaire ADF dont l'hypothèse H1 est la stationnarité de la série. On effectue le test ADF dans le cas avec constante et tendance.
+
+```{r logwine adf test}
+# cas avec constante et tendance
+adfTest(logwine, lag=0, type="ct")
+```
+
+``` {r decompose and pacf logwine}
+decompose_logwine <- decompose(logwine)
+plot(decompose_logwine) ; 
+pacf(logwine)
+```
+
+``` {r dlogwine}
+# dlogwine est la série logwine en différence première
+dlogwine.source <- diff(logwine.source, 1)
+dlogwine <- diff(logwine, 1)
+plot.ts(dlogwine, type="l", lwd=1, col="red", main="dlogwine", xlab="dates", ylab="values")
+```
+
+On cherche à déterminer si la série est stationnaire ou non. Pour cela, on souhaite effectuer un test de racine unitaire ADF dont l'hypothèse H1 est la stationnarité de la série. On effectue le test ADF dans le cas avec constante et tendance.
+
+```{r dlogwine adf test}
+# cas avec constante et tendance
+adfTest(dlogwine, lag=0, type="ct")
+```
+
+```{r dlogwine pp test}
+# cas avec constante et tendance
+pp.test(dlogwine)
+```
+
+
