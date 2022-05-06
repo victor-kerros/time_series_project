@@ -4,38 +4,50 @@
 
 ### Q1 - Présentation de la série
 
-```{r packages}
+``` {r import packages}
+# on utilise "zoo" pour formaliser les séries temporelles
 install.packages("zoo")
 require(zoo)
+# on utilise "tseries" pour diverses fonctions
 install.packages("tseries")
 require(tseries)
+# on utilise "fUnitRoots" pour les tests de racine unitaire
 install.packages("fUnitRoots")
 library(fUnitRoots)
 ```
 
 ``` {r import dataset}
-datafile <- "alim_valeurs_mensuelles.csv"
+datafile <- "biere_valeurs_mensuelles.csv"
 data <- read.csv(datafile, sep=";")
-indices <- ts(data[,"indices"], frequency=12, start=c(1990,1))
+#indices <- ts(data[,"indices"], frequency=12, start=c(1990,1))
 ```
 
-``` {r import dates}
-dateschar <- as.character(data$date)
-dateschar[1]; dateschar[length(dateschar)] # affiche la premiere et la derniere date
-dates <- as.yearmon(seq(from=1990+0/12,to=2022+2/12,by=1/12)) #index des dates pour indice
-indice.source <- zoo(data$indice, order.by=dates)
-T <- length(indice.source)
-indice <- indice.source[1:(T-4)] # serie en niveau a laquelle on retire les 4 dernieres dates
+``` {r create dates}
+string_dates <- as.character(data$dates)
+# premiere et la derniere date pour définir les indices des dates
+string_dates[1]; string_dates[length(string_dates)]
+# on définit les dates de la série
+dates <- as.yearmon(seq(from=1990+0/12,to=2022+3/12,by=1/12))
 ```
-```{r plot indices}
-dindice.source <- diff(indice.source, 1)
-dindice <- diff(indice,1) #serie en difference premiere a partir de la serie privee des 4 dernieres dates
-plot(indice.source) #representation graphique de la serie initiale
-plot(cbind(indice,dindice)) #representation graphique de la serie initiale privee des 4 dernieres observations et de la serie differenciee associee
+
+``` {r create ts elec and delec with zoo}
+elec.source <- zoo(data$indices, order.by=dates)
+# on enlève les 6 dernières dates à la série en niveau serie
+elec <- elec.source[1:(length(elec.source)-6)]
+# delec est la série en différence première
+delec.source <- diff(elec.source, 1)
+delec <- diff(elec,1)
 ```
+
+```{r plots elec}
+plot(elec.source)
+plot(cbind(elec, delec))
+```
+
 ```{r lm}
 summary(lm(indice ~ dates[1:(T-4)]))
 ```
+
 ```{r adf test}
 adf <- adfTest(indice, lag=0, type="ct") #test ADF dans le cas avec constante et tendance
 adf
