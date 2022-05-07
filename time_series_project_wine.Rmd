@@ -41,20 +41,23 @@ dwine.source <- diff(wine.source, 1)
 dwine <- diff(wine, 1)
 ```
 
-```{r plot wine.source}
+```{r plot and decompose wine.source}
 plot(wine.source, type="l", lwd=1, col="blue", main="wine.source", xlab="dates", ylab="values" )
-```
-
-``` {r decompose and log}
-# on passe au log pour lisser l'hétéroscédasticité
 decompose_wine.source <- decompose(wine.source)
 plot(decompose_wine.source)
+```
+
+### Q2 - Stationnarisation de la série
+
+On constate plusieurs choses : une tendance et de l'hétéroscédasticité.
+
+Pour rendre la série stationnaire, on lisse d'abord l'hétéroscédasticité en passant au log.
+
+``` {r log}
+# on passe au log pour lisser l'hétéroscédasticité
 logwine.source <- log(wine.source)
 decompose_logwine.source <- decompose(logwine.source)
 plot(decompose_logwine.source)
-```
-
-```{r plot logwine.source}
 plot(logwine.source, type="l", lwd=1, col="blue", main="logwine.source", xlab="dates", ylab="values")
 ```
 
@@ -75,7 +78,7 @@ Cette régression linéaire confirme la présence d'une tendance linéaire posit
 On cherche à déterminer si la série est stationnaire ou non. Pour cela, on souhaite effectuer un test de racine unitaire ADF dont l'hypothèse H1 est la stationnarité de la série. On effectue bien le test ADF dans le cas avec constante et tendance.
 
 ```{r logwine adf test}
-# cas avec constante et tendance
+# test ADF dans le cas avec constante et tendance
 adf_logwine <- adfTest(logwine, lag=0, type="ct")
 adf_logwine
 #pp.test(wine)
@@ -96,6 +99,7 @@ Qtests <- function(series, k, fitdf=0){
 
 Qtests(adf_logwine@test$lm$residuals, 24, length(adf_logwine@test$lm$coefficients))
 ```
+
 L’absence d’autocorrélation des résidus est rejetée, le test ADF avec aucun
 retard n’est donc pas valide. On ajoute alors des retards jusqu’à ce que les résidus ne soient plus autocorrélés à l'aide de la fonction ci-dessous.
 
@@ -127,7 +131,8 @@ elec = 21 lags
 biere = 9 lags
 petrole = 12 lags
 
-On constate alors que la série en niveau n'est pas stationnaire. On passe à la série en différence première.
+On constate alors que la série en niveau n'est pas stationnaire : le test ADF ne rejette pas l'hypothèse racine unitaire (p-value > 0.05). 
+On passe à la série en différence première ou intégrée d'ordre 1.
 
 ```{r dlogwine adf test}
 dlogwine.source <- diff(logwine.source, 1)
@@ -139,8 +144,10 @@ adf_dlogwine <- adfTest(dlogwine, lag=0, type="nc")
 Qtests(adf_dlogwine@test$lm$residuals, 24, length(adf_dlogwine@test$lm$coefficients))
 ```
 
+Non seulement, la série intégrée d'ordre 1 ne présente pas de tendance et de constante significative mais en plus elle vérifie l’absence autocorrélation des résidus.
+
 ```{r dlogwine adf test}
-adf <- adfTest_valid(dlogwine,24,"nc")
+adf <- adfTest_valid(dlogwine, 24, "nc")
 adf
 ```
 pharm : 10 lags
@@ -152,6 +159,18 @@ petrole = 10 lags
 spirit = 7 lags
 
 Le test ADF n'est pas rejeté, on retient son hypothèse alternative : la série est stationnaire. On détermine désormais pmax et qmax pour déterminer le modèle ARIMA.
+
+### Q3 - Représentation de la série avant et après transformation
+
+``` {r plot wine and dlogwine}
+plot(cbind(wine.source,dlogwine.source))
+```
+
+## Partie 2 : Modèles ARMA
+
+### Q4 - Choix du modèle ARMA
+
+On détermine d'abord pmax et qmax.
 
 ``` {r acf and pacf dlogwine}
 acf(dlogwine); pacf(dlogwine)
@@ -179,7 +198,7 @@ qbiere = 2
 pbiere = 8
 
 ``` {r pmax and qmax}
-pmax=7; qmax=5
+pmax=7; qmax=7
 ```
 
 ``` {r find valid models}
@@ -223,18 +242,18 @@ selec
 
 ``` {r AIC and BIC}
 
-# on crée la liste des armapq possibles
+# on crée la liste des arma(p,q) possibles
 pqs <- apply(selec,1,function(row)
 list("p"=as.numeric(row[1]),"q"=as.numeric(row[2])))
 names(pqs) <- paste0("arma(",selec[,1],",",selec[,2],")")
 
-# on crée la liste des modèles armapq
+# on crée la liste des modèles arma(p,q)
 models <- lapply(pqs, function(pq) arima(dlogwine,c(pq[["p"]],0,pq[["q"]])))
 # on calcule les AIC et BIC des modèles possibles
 vapply(models, FUN.VALUE=numeric(2), function(m) c("AIC"=AIC(m),"BIC"=BIC(m)))
 ```
 
-
+### Q5 - Expression du modèle ARIMA retenu.
 
 
 
