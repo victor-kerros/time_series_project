@@ -19,7 +19,7 @@ library(fUnitRoots)
 Link : https://www.insee.fr/fr/statistiques/serie/010537307
 
 ``` {r import dataset}
-datafile <- "alim_valeurs_mensuelles.csv"
+datafile <- "gas_valeurs_mensuelles.csv"
 data <- read.csv(datafile, sep=";")
 ```
 
@@ -130,6 +130,7 @@ alim = 8 lags
 elec = 21 lags
 biere = 9 lags
 petrole = 12 lags
+gas = 4 lags
 
 On constate alors que la série en niveau n'est pas stationnaire : le test ADF ne rejette pas l'hypothèse racine unitaire (p-value > 0.05). 
 On passe à la série en différence première ou intégrée d'ordre 1.
@@ -157,6 +158,7 @@ wine = 15 lags
 biere = 8 lags
 petrole = 10 lags
 spirit = 7 lags
+gas = 3 lags
 
 Le test ADF n'est pas rejeté, on retient son hypothèse alternative : la série est stationnaire. On détermine désormais pmax et qmax pour déterminer le modèle ARIMA.
 
@@ -176,8 +178,11 @@ On détermine d'abord pmax et qmax.
 acf(dlogwine); pacf(dlogwine)
 ```
 
-qpharm = 11
-ppharm = 12
+qgas = 2
+pgas = 4 (16)
+
+qpharm = 12
+ppharm = 11
 
 qspirit = 12
 pspirit = 12
@@ -200,7 +205,7 @@ pbiere = 8
 On ignore les autocorrélations (partielles) pour les retards supérieurs à 20 dans l'objectif d'obtenir un modèle le plus simple possible.
 
 ``` {r pmax and qmax}
-pmax=7; qmax=7
+pmax=2; qmax=4
 ```
 
 ``` {r find valid models}
