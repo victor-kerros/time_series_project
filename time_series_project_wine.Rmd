@@ -72,7 +72,7 @@ summary(lm(logwine ~ truncated_dates))
 
 Cette régression linéaire confirme la présence d'une tendance linéaire positive dans nos données et d'une constante : p_values < 1 %.
 
-On cherche à déterminer si la série est stationnaire ou non. Pour cela, on souhaite effectuer un test de racine unitaire ADF dont l'hypothèse H1 est la stationnarité de la série. On effectue le test ADF dans le cas avec constante et tendance.
+On cherche à déterminer si la série est stationnaire ou non. Pour cela, on souhaite effectuer un test de racine unitaire ADF dont l'hypothèse H1 est la stationnarité de la série. On effectue bien le test ADF dans le cas avec constante et tendance.
 
 ```{r logwine adf test}
 # cas avec constante et tendance
@@ -97,7 +97,7 @@ Qtests <- function(series, k, fitdf=0){
 Qtests(adf_logwine@test$lm$residuals, 24, length(adf_logwine@test$lm$coefficients))
 ```
 L’absence d’autocorrélation des résidus est rejetée, le test ADF avec aucun
-retard n’est donc pas valide. On ajoute donc des retards jusqu’à ce que les résidus ne soient plus autocorrélés.
+retard n’est donc pas valide. On ajoute alors des retards jusqu’à ce que les résidus ne soient plus autocorrélés à l'aide de la fonction ci-dessous.
 
 ```{r logwine adf test : cf. TD5}
 adfTest_valid <- function(series,kmax,type){ 
@@ -115,18 +115,19 @@ k <- k + 1
 }
 return(adf)
 }
-adf <- adfTest_valid(logwine, 24, "ct")
-```
 
-```{r show adf}
+adf <- adfTest_valid(logwine, 24, "ct")
 adf
 ```
+
 wine = 14 lags
 pharm = 11 lags
 alim = 8 lags
 elec = 21 lags
 biere = 9 lags
 petrole = 12 lags
+
+On constate alors que la série en niveau n'est pas stationnaire. On passe à la série en différence première.
 
 ```{r dlogwine adf test}
 dlogwine.source <- diff(logwine.source, 1)
@@ -149,6 +150,8 @@ wine = 15 lags
 biere = 8 lags
 petrole = 10 lags
 spirit = 7 lags
+
+Le test ADF n'est pas rejeté, on retient son hypothèse alternative : la série est stationnaire. On détermine désormais pmax et qmax pour déterminer le modèle ARIMA.
 
 ``` {r acf and pacf dlogwine}
 acf(dlogwine); pacf(dlogwine)
@@ -176,8 +179,69 @@ qbiere = 2
 pbiere = 8
 
 ``` {r pmax and qmax}
-pmax=7; qmax=2
+pmax=7; qmax=5
 ```
+
+``` {r find valid models}
+
+# fonction de test des significativités individuelles des coefficients
+signif <- function(estim){
+  coef <- estim$coef
+  se <- sqrt(diag(estim$var.coef))
+  t <- coef/se
+  pval <- (1-pnorm(abs(t)))*2
+  return(rbind(coef,se,pval))
+}
+
+# fonction pour estimer un arima et en vérifier l’ajustement et la validité
+modelchoice <- function(p, q, data=dlogwine, k=24){
+  estim <- try(arima(data, c(p,0,q),optim.control=list(maxit=20000)))
+  if (class(estim)=="try-error") return(c("p"=p,"q"=q,"arsignif"=NA,"masignif"=NA,"resnocorr"=NA, "ok"=NA))
+  arsignif <- if (p==0) NA else signif(estim)[3,p]<=0.05
+  masignif <- if (q==0) NA else signif(estim)[3,p+q]<=0.05
+  resnocorr <- sum(Qtests(estim$residuals,24,length(estim$coef)-1)[,2]<=0.05,na.rm=T)==0
+  checks <- c(arsignif,masignif,resnocorr)
+  ok <- as.numeric(sum(checks,na.rm=T)==(3-sum(is.na(checks))))
+  return(c("p"=p,"q"=q,"arsignif"=arsignif,"masignif"=masignif,"resnocorr"=resnocorr,"ok"=ok))
+}
+
+
+# fonction pour estimer et vérifier tous les arma(p,q) (p<=pmax ; q<=qmax)
+armamodelchoice <- function(pmax,qmax){
+  pqs <- expand.grid(0:pmax,0:qmax) ; t(apply(matrix(1:dim(pqs)[1]),1,function(row) {
+    p <- pqs[row,1]; q <- pqs[row,2]
+    cat(paste0("Computing ARMA(",p,",",q,") \n"))
+    modelchoice(p,q)
+  }))}
+
+armamodels <- armamodelchoice(pmax,qmax)
+
+# on ne retient que les modèles ajustés et valides
+selec <- armamodels[armamodels[,"ok"]==1&!is.na(armamodels[,"ok"]),]
+selec
+```
+
+``` {r AIC and BIC}
+
+# on crée la liste des armapq possibles
+pqs <- apply(selec,1,function(row)
+list("p"=as.numeric(row[1]),"q"=as.numeric(row[2])))
+names(pqs) <- paste0("arma(",selec[,1],",",selec[,2],")")
+
+# on crée la liste des modèles armapq
+models <- lapply(pqs, function(pq) arima(dlogwine,c(pq[["p"]],0,pq[["q"]])))
+# on calcule les AIC et BIC des modèles possibles
+vapply(models, FUN.VALUE=numeric(2), function(m) c("AIC"=AIC(m),"BIC"=BIC(m)))
+```
+
+
+
+
+
+
+
+
+
 
 ``` {r AIC and BIC}
 # on définit deux matrices vides à remplir avec les valeurs des AICs et BICs
