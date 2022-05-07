@@ -1,6 +1,6 @@
 # Projet de Séries temporelles linéaires - 2A ENSAE
 
-## Partie I : Données
+## Partie I : Données et stationnarisation
 
 ### Q1 - Présentation de la série
 
@@ -197,6 +197,8 @@ palim = 7
 qbiere = 2
 pbiere = 8
 
+On ignore les autocorrélations (partielles) pour les retards supérieurs à 20 dans l'objectif d'obtenir un modèle le plus simple possible.
+
 ``` {r pmax and qmax}
 pmax=7; qmax=7
 ```
@@ -254,10 +256,6 @@ models <- lapply(pqs, function(pq) arima(dlogwine, c(pq[["p"]], 0, pq[["q"]])))
 vapply(models, FUN.VALUE=numeric(2), function(m) c("AIC"=AIC(m),"BIC"=BIC(m)))
 ```
 
-``` {r models}
-models
-```
-
 On compare les prédictions des modèles arma(1,1) (minimise l'AIC) et arma(0,1) (minimise le BIC) avec le RMSE.
 
 ``` {r select model with best rmse}
@@ -299,4 +297,28 @@ pvarima011 <- (1-pnorm(abs(tarima011)))*2
 pvarima011["ma1"]
 Qtests(arima011$residuals, 24, fitdf=1)
 ```
+
+## Partie III : Prévisions
+
+### Q6 - Région de confiance pour les valeurs futures t+1 et t+2
+
+### Q7 - Hypothèses pour la région de confiance
+
+### Q8 - Représentation graphique de la région de confiance
+
+``` {r forecasts}
+forecasts <- forecast(ar1ma1, h=2, level=c(95))
+plot(forecasts, , xlim=c(2018,2022), shadecols = "grey", fcol="blue", main = "Intervalles de confiance à 95% pour T+1 et T+2")
+```
+
+``` {r forecasts}
+require("forecast")
+require("fpp2")
+prev <- forecast(arima011, h=2, level=0.95)
+plot(prev, xlim=c(2017,2022))
+lines(dlogwine.source[1:386], xlim=c(2017,2022))
+```
+
+### Q9 - Question ouverte
+
 
