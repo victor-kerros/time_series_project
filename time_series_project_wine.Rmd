@@ -19,7 +19,7 @@ library(fUnitRoots)
 Link : https://www.insee.fr/fr/statistiques/serie/010537307
 
 ``` {r import dataset}
-datafile <- "gas_valeurs_mensuelles.csv"
+datafile <- "amy_valeurs_mensuelles.csv"
 data <- read.csv(datafile, sep=";")
 ```
 
@@ -131,6 +131,7 @@ elec = 21 lags
 biere = 9 lags
 petrole = 12 lags
 gas = 4 lags
+rocks = 12 lags
 
 On constate alors que la série en niveau n'est pas stationnaire : le test ADF ne rejette pas l'hypothèse racine unitaire (p-value > 0.05). 
 On passe à la série en différence première ou intégrée d'ordre 1.
@@ -151,6 +152,8 @@ Non seulement, la série intégrée d'ordre 1 ne présente pas de tendance et de
 adf <- adfTest_valid(dlogwine, 24, "nc")
 adf
 ```
+
+rocks : 7 lags
 pharm : 10 lags
 alim : 6 lags
 elec : 12 lags
@@ -177,6 +180,21 @@ On détermine d'abord pmax et qmax.
 ``` {r acf and pacf dlogwine}
 acf(dlogwine); pacf(dlogwine)
 ```
+
+qamy = 3
+pamy = 1
+
+qmilk = 6 (15)
+pmilk = 6 (14)
+
+qjuices = 15
+pjuices = 13
+
+qwater = 8
+pwater = 8
+
+qrocks = 1
+procks = 8
 
 qgas = 2
 pgas = 4 (16)
@@ -205,7 +223,7 @@ pbiere = 8
 On ignore les autocorrélations (partielles) pour les retards supérieurs à 20 dans l'objectif d'obtenir un modèle le plus simple possible.
 
 ``` {r pmax and qmax}
-pmax=2; qmax=4
+pmax=1; qmax=3
 ```
 
 ``` {r find valid models}
@@ -265,8 +283,8 @@ On compare les prédictions des modèles arma(1,1) (minimise l'AIC) et arma(0,1)
 
 ``` {r select model with best rmse}
 
-ar1ma1 <- arima(logwine, c(1,1,1), optim.control=list(maxit=20000))
-ma1 <- arima(logwine, c(0,1,1), optim.control=list(maxit=20000))
+ar1ma1 <- arima(logwine, c(1,1,2), optim.control=list(maxit=20000))
+ma1 <- arima(logwine, c(0,1,3), optim.control=list(maxit=20000))
 
 # on crée des séries pour les prédictions des deux modèles à tester
 models <- c("ar1ma1","ma1")
