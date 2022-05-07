@@ -236,7 +236,7 @@ armamodelchoice <- function(pmax,qmax){
 armamodels <- armamodelchoice(pmax,qmax)
 
 # on ne retient que les modèles ajustés et valides
-selec <- armamodels[armamodels[,"ok"]==1&!is.na(armamodels[,"ok"]),]
+selec <- armamodels[armamodels[, "ok"]==1&!is.na(armamodels[, "ok"]),]
 selec
 ```
 
@@ -244,156 +244,59 @@ selec
 
 # on crée la liste des arma(p,q) possibles
 pqs <- apply(selec,1,function(row)
-list("p"=as.numeric(row[1]),"q"=as.numeric(row[2])))
-names(pqs) <- paste0("arma(",selec[,1],",",selec[,2],")")
+list("p"=as.numeric(row[1]), "q"=as.numeric(row[2])))
+names(pqs) <- paste0("arma(", selec[,1], ",", selec[,2],")")
 
 # on crée la liste des modèles arma(p,q)
-models <- lapply(pqs, function(pq) arima(dlogwine,c(pq[["p"]],0,pq[["q"]])))
+models <- lapply(pqs, function(pq) arima(dlogwine, c(pq[["p"]], 0, pq[["q"]])))
+
 # on calcule les AIC et BIC des modèles possibles
 vapply(models, FUN.VALUE=numeric(2), function(m) c("AIC"=AIC(m),"BIC"=BIC(m)))
 ```
 
+``` {r models}
+models
+```
+
+On compare les prédictions des modèles arma(1,1) (minimise l'AIC) et arma(0,1) (minimise le BIC) avec le RMSE.
+
+``` {r select model with best rmse}
+
+ar1ma1 <- arima(logwine, c(1,1,1), optim.control=list(maxit=20000))
+ma1 <- arima(logwine, c(0,1,1), optim.control=list(maxit=20000))
+
+# on crée des séries pour les prédictions des deux modèles à tester
+models <- c("ar1ma1","ma1")
+preds <- zoo(matrix(NA, ncol=2, nrow=6), order.by=tail(index(logwine.source), 6))
+colnames(preds) <- models
+logwinep <- preds
+
+# on remplit la série avec les prédictions des modèles
+for (model in models){
+pred <- zoo(predict(get(model), 6)$pred, order.by=tail(index(logwine.source), 6))
+logwinep[, model] <- pred
+}
+
+# on affiche les valeurs observées et les prédictions
+obs <- tail(logwine.source, 6)
+cbind(obs, logwinep)
+
+# on calcule les rmse
+apply(logwinep, 2, function(x) sqrt(sum((x-obs)^2)/6)/sd(logwine.source))
+```
+
 ### Q5 - Expression du modèle ARIMA retenu.
 
-
-
-
-
-
-
-
-``` {r AIC and BIC}
-# on définit deux matrices vides à remplir avec les valeurs des AICs et BICs
-mat <- matrix(NA, nrow=pmax+1, ncol=qmax+1)
-rownames(mat) <- paste0("p=",0:pmax)
-colnames(mat) <- paste0("q=",0:qmax)
-AICs <- mat
-BICs <- mat
-# on collecte dans pqs toutes les combinaisons possibles de p et q
-pqs <- expand.grid(0:pmax,0:qmax)
-# on boucle sur ces combinaisons
-for (row in 1:dim(pqs)[1]){
-p <- pqs[row,1]
-q <- pqs[row,2]
-# on assigne les scores AICs et BICs
-estim <- try(arima(dlogwine,c(p,0,q),include.mean = F))
-AICs[p+1,q+1] <- if (class(estim)=="try-error") NA else estim$aic
-BICs[p+1,q+1] <- if (class(estim)=="try-error") NA else BIC(estim)
-}
-
-AICs 
-AICs==min(AICs) 
-BICs
-BICs==min(BICs)
+``` {r selected model}
+selected_model <- ma1
+selected_model
 ```
-``` {r best models alim}
-# on conserve les modèles ARIMA qui minimisent l'AIC et BIC
-arima011 <- arima(logwine,c(0,1,1),include.mean=F)
+
+``` {r check selected model}
+arima011 <- arima(logwine, c(0,1,1), include.mean=F)
 tarima011 <- arima011$coef / sqrt(diag(arima011$var.coef))
-pvarima011 <- (1-pnorm(abs(tarima513)))*2
+pvarima011 <- (1-pnorm(abs(tarima011)))*2
 pvarima011["ma1"]
-Qtests(arima011$residuals,24,fitdf=1)
-
-arima111 <- arima(logwine,c(1,1,1),include.mean=F)
-tarima111 <- arima111$coef / sqrt(diag(arima111$var.coef))
-pvarima111 <- (1-pnorm(abs(tarima111)))*2
-pvarima111["ar1"]
-pvarima111["ma1"]
-Qtests(arima111$residuals,24,fitdf=1)
+Qtests(arima011$residuals, 24, fitdf=1)
 ```
 
-
-``` {r best models wine}
-# on conserve les modèles ARIMA qui minimisent l'AIC et BIC
-arima513 <- arima(logwine,c(5,1,3),include.mean=F)
-tarima513 <- arima513$coef / sqrt(diag(arima513$var.coef))
-pvarima513 <- (1-pnorm(abs(tarima513)))*2
-pvarima513["ar5"]
-pvarima513["ma3"]
-Qtests(arima513$residuals,24,fitdf=5)
-
-arima111 <- arima(logwine,c(1,1,1),include.mean=F)
-tarima111 <- arima111$coef / sqrt(diag(arima111$var.coef))
-pvarima111 <- (1-pnorm(abs(tarima111)))*2
-pvarima111["ar1"]
-pvarima111["ma1"]
-Qtests(arima111$residuals,24,fitdf=1)
-
-arima313 <- arima(logwine,c(3,1,3),include.mean=F)
-tarima313 <- arima313$coef / sqrt(diag(arima313$var.coef))
-pvarima313 <- (1-pnorm(abs(tarima313)))*2
-pvarima313["ar3"]
-pvarima313["ma3"]
-Qtests(arima313$residuals,24,fitdf=3)
-arima313
-```
-
-
-``` {r which models ?}
-# fonction de test des significativites individuelles des coefficients
-signif <- function(estim){
-  coef <- estim$coef
-  se <- sqrt(diag(estim$var.coef))
-  t <- coef/se
-  pval <- (1-pnorm(abs(t)))*2
-  return(rbind(coef, se, pval))
-}
-
-#fonction pour estimer un ARIMA et en verifier l'ajustement et la validite
-modelchoice <- function(p, q, data=dlogwine, k=24){
-  estim <- try(arima(data, c(p,0,q),optim.control=list(maxit=20000)))
-  if (class(estim)=="try-error") return(c("p"=p,"q"=q,"arsignif"=NA,"masignif"=NA,"resnocorr"=NA, "ok"=NA))
-  arsignif <- if (p==0) NA else signif(estim)[3,p]<=0.05
-  masignif <- if (q==0) NA else signif(estim)[3,p+q]<=0.05
-  resnocorr <- sum(Qtests(estim$residuals,24,length(estim$coef)-1)[,2]<=0.05,na.rm=T)==0
-  checks <- c(arsignif,masignif,resnocorr)
-  ok <- as.numeric(sum(checks,na.rm=T)==(3-sum(is.na(checks))))
-  return(c("p"=p,"q"=q,"arsignif"=arsignif,"masignif"=masignif,"resnocorr"=resnocorr,"ok"=ok))
-}
-
-
-#fonction pour estimer et verifier tous les ARMA(p,q) avec p<=pmax et q<=max
-armamodelchoice <- function(pmax,qmax){
-  pqs <- expand.grid(0:pmax,0:qmax) ; t(apply(matrix(1:dim(pqs)[1]),1,function(row) {
-    p <- pqs[row,1]; q <- pqs[row,2]
-    cat(paste0("Computing ARMA(",p,",",q,") \n"))
-    modelchoice(p,q)
-  }))}
-
-armamodels <- armamodelchoice(pmax,qmax)
-
-```
-
-``` {r select models}
-selec <- armamodels[armamodels[,"ok"]==1&!is.na(armamodels[,"ok"]),] # renvoie les modeles bien ajustes et valides
-selec
-```
-
-
-
-
-
-
-
-
-
-
-
-``` {r dlogwine}
-# dlogwine est la série logwine en différence première
-dlogwine.source <- diff(logwine.source, 1)
-dlogwine <- diff(logwine, 1)
-plot.ts(dlogwine, type="l", lwd=1, col="red", main="dlogwine", xlab="dates", ylab="values")
-```
-
-On cherche à déterminer si la série est stationnaire ou non. Pour cela, on souhaite effectuer un test de racine unitaire ADF dont l'hypothèse H1 est la stationnarité de la série. On effectue le test ADF dans le cas avec constante et tendance.
-
-```{r dlogwine adf test}
-# cas avec constante et tendance
-adfTest(dlogwine, lag=0, type="ct")
-```
-
-```{r dlogwine pp test}
-# cas avec constante et tendance
-pp.test(dlogwine)
-```
