@@ -23,7 +23,7 @@ library(fUnitRoots)
 require("forecast")
 ```
 
-Link : https://www.insee.fr/fr/statistiques/serie/010537307
+Link : https://www.insee.fr/fr/statistiques/serie/010537313
 
 ``` {r import dataset}
 datafile <- "water_valeurs_mensuelles.csv"
@@ -38,20 +38,21 @@ string_dates[1]; string_dates[length(string_dates)]
 dates <- as.yearmon(seq(from=1990+1/12, to=2022+3/12, by=1/12))
 ```
 
-``` {r create ts wine and dwine with zoo}
+``` {r create ts water and dwater with zoo}
 # on permute la série sinon elle n'est pas dans le bon sens
-wine.source <- zoo(rev(data$indices), order.by=dates)
+water.source <- zoo(rev(data$indices), order.by=dates)
 # on enlève les 6 dernières dates à la série en niveau serie
-wine <- wine.source[1:(length(wine.source)-6)]
+# cela permettra de tester avec le RMSE les différents modèles concurrents
+water <- water.source[1:(length(water.source)-6)]
 # delec est la série en différence première
-dwine.source <- diff(wine.source, 1)
-dwine <- diff(wine, 1)
+dwater.source <- diff(water.source, 1)
+dwater <- diff(water, 1)
 ```
 
-```{r plot and decompose wine.source}
-plot(wine.source, type="l", lwd=1, col="blue", main="wine.source", xlab="dates", ylab="values" )
-decompose_wine.source <- decompose(wine.source)
-plot(decompose_wine.source)
+```{r plot and decompose water.source}
+plot(water.source, type="l", lwd=1, col="blue", main="water.source", xlab="dates", ylab="values" )
+decompose_water.source <- decompose(water.source)
+plot(decompose_water.source)
 ```
 
 ### Q2 - Stationnarisation de la série
@@ -62,10 +63,10 @@ Pour rendre la série stationnaire, on lisse d'abord l'hétéroscédasticité en
 
 ``` {r log}
 # on passe au log pour lisser l'hétéroscédasticité
-logwine.source <- log(wine.source)
-decompose_logwine.source <- decompose(logwine.source)
-plot(decompose_logwine.source)
-plot(logwine.source, type="l", lwd=1, col="blue", main="logwine.source", xlab="dates", ylab="values")
+logwater.source <- log(water.source)
+decompose_logwater.source <- decompose(logwater.source)
+plot(decompose_logwater.source)
+plot(logwater.source, type="l", lwd=1, col="blue", main="logwater.source", xlab="dates", ylab="values")
 ```
 
 ### Q2 - Stationnarisation de la série
@@ -75,20 +76,20 @@ On constate sur le graphique ci-dessus une tendance linéaire positive pour la s
 On vérifie d'abord la tendance linéaire en effectuant une régression linéaire des valeurs de la série tronquée sur les dates.
 
 ```{r lm}
-truncated_dates <- dates[1:(length(logwine.source)-6)]
-logwine <- logwine.source[1:(length(logwine.source)-6)]
-summary(lm(logwine ~ truncated_dates))
+truncated_dates <- dates[1:(length(logwater.source)-6)]
+logwater <- logwater.source[1:(length(logwater.source)-6)]
+summary(lm(logwater ~ truncated_dates))
 ```
 
 Cette régression linéaire confirme la présence d'une tendance linéaire positive dans nos données et d'une constante : p_values < 1 %.
 
 On cherche à déterminer si la série est stationnaire ou non. Pour cela, on souhaite effectuer un test de racine unitaire ADF dont l'hypothèse H1 est la stationnarité de la série. On effectue bien le test ADF dans le cas avec constante et tendance.
 
-```{r logwine adf test}
+```{r logwater adf test}
 # test ADF dans le cas avec constante et tendance
-adf_logwine <- adfTest(logwine, lag=0, type="ct")
-adf_logwine
-#pp.test(wine)
+adf_logwater <- adfTest(logwater, lag=0, type="ct")
+adf_logwater
+#pp.test(water)
 ```
 
 D'après le test ADF, la série en niveau est stationnaire. Seulement, pour que le test soit valide, il faut que les résidus de la régression ne soient pas autocorrélés.
@@ -104,13 +105,13 @@ Qtests <- function(series, k, fitdf=0){
   return(t(pvals))
 }
 
-Qtests(adf_logwine@test$lm$residuals, 24, length(adf_logwine@test$lm$coefficients))
+Qtests(adf_logwater@test$lm$residuals, 24, length(adf_logwater@test$lm$coefficients))
 ```
 
 L’absence d’autocorrélation des résidus est rejetée, le test ADF avec aucun
 retard n’est donc pas valide. On ajoute alors des retards jusqu’à ce que les résidus ne soient plus autocorrélés à l'aide de la fonction ci-dessous.
 
-```{r logwine adf test : cf. TD5}
+```{r logwater adf test : cf. TD5}
 adfTest_valid <- function(series,kmax,type){ 
 # tests ADF jusqu’à des résidus non autocorrélés
 k <- 0
@@ -127,59 +128,36 @@ k <- k + 1
 return(adf)
 }
 
-adf <- adfTest_valid(logwine, 24, "ct")
+adf <- adfTest_valid(logwater, 24, "ct")
 adf
 ```
-
-wine = 14 lags
-pharm = 11 lags
-alim = 8 lags
-elec = 21 lags
-biere = 9 lags
-petrole = 12 lags
-gas = 4 lags
-rocks = 12 lags
-amy = 2 lags
-water = 11 lags
 
 On constate alors que la série en niveau n'est pas stationnaire : le test ADF ne rejette pas l'hypothèse racine unitaire (p-value > 0.05). 
 On passe à la série en différence première ou intégrée d'ordre 1.
 
-```{r dlogwine adf test}
-dlogwine.source <- diff(logwine.source, 1)
-dlogwine <- diff(logwine, 1)
-plot(dlogwine.source, type="l", lwd=1, col="blue", main="dlogwine.source", xlab="dates", ylab="values")
-summary(lm(dlogwine ~ dates[2:(length(logwine.source)-6)]))
+```{r dlogwater adf test}
+dlogwater.source <- diff(logwater.source, 1)
+dlogwater <- diff(logwater, 1)
+plot(dlogwater.source, type="l", lwd=1, col="blue", main="dlogwater.source", xlab="dates", ylab="values")
+summary(lm(dlogwater ~ dates[2:(length(logwater.source)-6)]))
 # il n'y a pas de tendance ni de constante
-adf_dlogwine <- adfTest(dlogwine, lag=0, type="nc")
-Qtests(adf_dlogwine@test$lm$residuals, 24, length(adf_dlogwine@test$lm$coefficients))
+adf_dlogwater <- adfTest(dlogwater, lag=0, type="nc")
+Qtests(adf_dlogwater@test$lm$residuals, 24, length(adf_dlogwater@test$lm$coefficients))
 ```
 
 Non seulement, la série intégrée d'ordre 1 ne présente pas de tendance et de constante significative mais en plus elle vérifie l’absence autocorrélation des résidus à l'ordre 1.
 
-```{r dlogwine adf test}
-adf <- adfTest_valid(dlogwine, 24, "nc")
+```{r dlogwater adf test}
+adf <- adfTest_valid(dlogwater, 24, "nc")
 adf
 ```
 
-rocks : 7 lags
-pharm : 10 lags
-alim : 6 lags
-elec : 12 lags
-wine = 15 lags
-biere = 8 lags
-petrole = 10 lags
-spirit = 7 lags
-gas = 3 lags
-amy = 1 lag
-water = 8 lags
-
-Le test ADF n'est pas rejeté avec un retard pour la série différenciée, on retient son hypothèse alternative : la série est stationnaire. On détermine désormais pmax et qmax pour déterminer le modèle ARIMA.
+Le test ADF n'est pas rejeté avec huit retards pour la série différenciée, on retient son hypothèse alternative : la série est stationnaire. On détermine désormais pmax et qmax pour évaluer le modèle ARIMA(p,1,q) adéquat.
 
 ### Q3 - Représentation de la série avant et après transformation
 
-``` {r plot wine and dlogwine}
-plot(cbind(wine.source,dlogwine.source))
+``` {r plot water and dlogwater}
+plot(cbind(water.source,dlogwater.source))
 ```
 
 ## Partie 2 : Modèles ARMA
@@ -188,48 +166,12 @@ plot(cbind(wine.source,dlogwine.source))
 
 On détermine d'abord pmax et qmax.
 
-``` {r acf and pacf dlogwine}
-acf(dlogwine); pacf(dlogwine)
+``` {r acf and pacf dlogwater}
+acf(dlogwater); pacf(dlogwater)
 ```
-
-qamy = 3
-pamy = 1
-
-qmilk = 6 (15)
-pmilk = 6 (14)
-
-qjuices = 15
-pjuices = 13
 
 qwater = 8
 pwater = 9
-
-qrocks = 1
-procks = 8
-
-qgas = 4
-pgas = 3
-
-qpharm = 12
-ppharm = 11
-
-qspirit = 12
-pspirit = 12
-
-qpetrole = 13
-ppetrole = 11
-
-qwine = 14 (4)
-pwine = 14 (3)
-
-qelec = 24 (7)
-pelec = 24 (7)
-
-qalim = 24 (2 / 7)
-palim = 7
-
-qbiere = 2
-pbiere = 8
 
 On ignore les autocorrélations (partielles) pour les retards supérieurs à 20 dans l'objectif d'obtenir un modèle le plus simple possible.
 
@@ -249,7 +191,7 @@ signif <- function(estim){
 }
 
 # fonction pour estimer un arima et en vérifier l’ajustement et la validité
-modelchoice <- function(p, q, data=dlogwine, k=24){
+modelchoice <- function(p, q, data=dlogwater, k=24){
   estim <- try(arima(data, c(p,0,q),optim.control=list(maxit=20000)))
   if (class(estim)=="try-error") return(c("p"=p,"q"=q,"arsignif"=NA,"masignif"=NA,"resnocorr"=NA, "ok"=NA))
   arsignif <- if (p==0) NA else signif(estim)[3,p]<=0.05
@@ -284,7 +226,7 @@ list("p"=as.numeric(row[1]), "q"=as.numeric(row[2])))
 names(pqs) <- paste0("arma(", selec[,1], ",", selec[,2],")")
 
 # on crée la liste des modèles arma(p,q)
-models <- lapply(pqs, function(pq) arima(dlogwine, c(pq[["p"]], 0, pq[["q"]])))
+models <- lapply(pqs, function(pq) arima(dlogwater, c(pq[["p"]], 0, pq[["q"]])))
 
 # on calcule les AIC et BIC des modèles possibles
 vapply(models, FUN.VALUE=numeric(2), function(m) c("AIC"=AIC(m),"BIC"=BIC(m)))
@@ -294,45 +236,45 @@ On compare les prédictions des modèles arma(1,1) (minimise l'AIC) et arma(0,1)
 
 ``` {r select model with best rmse}
 
-ar1ma1 <- arima(logwine, c(9,1,7), optim.control=list(maxit=20000))
-ma1 <- arima(logwine, c(7,1,0), optim.control=list(maxit=20000))
+ar9ma7 <- arima(logwater, c(9,1,7), optim.control=list(maxit=20000))
+ar7 <- arima(logwater, c(7,1,0), optim.control=list(maxit=20000))
 
 # on crée des séries pour les prédictions des deux modèles à tester
-models <- c("ar1ma1","ma1")
-preds <- zoo(matrix(NA, ncol=2, nrow=6), order.by=tail(index(logwine.source), 6))
+models <- c("ar9ma7","ar7")
+preds <- zoo(matrix(NA, ncol=2, nrow=6), order.by=tail(index(logwater.source), 6))
 colnames(preds) <- models
-logwinep <- preds
+logwaterp <- preds
 
 # on remplit la série avec les prédictions des modèles
 for (model in models){
-pred <- zoo(predict(get(model), 6)$pred, order.by=tail(index(logwine.source), 6))
-logwinep[, model] <- pred
+pred <- zoo(predict(get(model), 6)$pred, order.by=tail(index(logwater.source), 6))
+logwaterp[, model] <- pred
 }
 
 # on affiche les valeurs observées et les prédictions
-obs <- tail(logwine.source, 6)
-cbind(obs, logwinep)
+obs <- tail(logwater.source, 6)
+cbind(obs, logwaterp)
 
 # on calcule les rmse
-apply(logwinep, 2, function(x) sqrt(sum((x-obs)^2)/6)/sd(logwine.source))
+apply(logwaterp, 2, function(x) sqrt(sum((x-obs)^2)/6)/sd(logwater.source))
 ```
 
 ### Q5 - Expression du modèle ARIMA retenu.
 
 ``` {r selected model}
-selected_model <- ar1ma1
+selected_model <- ar9ma7
 selected_model
 ```
 
 On vérifie la significativité du coefficient.
 
 ``` {r check selected model}
-arima011 <- arima(logwine, c(9,1,7), include.mean=F)
-tarima011 <- arima011$coef / sqrt(diag(arima011$var.coef))
-pvarima011 <- (1-pnorm(abs(tarima011)))*2
-pvarima011["ma7"]
-pvarima011["ar9"]
-Qtests(arima011$residuals, 24, fitdf=1)
+arima917 <- arima(logwater, c(9,1,7), include.mean=F)
+tarima917 <- arima917$coef / sqrt(diag(arima917$var.coef))
+pvarima917 <- (1-pnorm(abs(tarima917)))*2
+pvarima917["ma7"]
+pvarima917["ar9"]
+Qtests(arima917$residuals, 24, fitdf=1)
 ```
 
 ## Partie III : Prévisions
@@ -344,14 +286,14 @@ Qtests(arima011$residuals, 24, fitdf=1)
 ### Q8 - Représentation graphique de la région de confiance
 
 ``` {r forecasts}
-forecasts <- forecast(ar1ma1, h=2, level=c(95))
-plot(forecasts, , xlim=c(2018,2022), shadecols = "grey", fcol="blue", main = "Intervalles de confiance à 95% pour T+1 et T+2")
+forecasts <- forecast(ar1ma1, h=4, level=0.95)
+plot(forecasts, , xlim=c(2018,2022), shadecols = "grey", fcol="blue", main = "intervalle de confiance (alpha = 0.95) pour T+1 et T+2")
 ```
 
 ``` {r forecasts}
 prev <- forecast(arima011, h=6, level=0.95)
 plot(prev, xlim=c(2017,2022))
-lines(dlogwine.source[1:386], xlim=c(2017,2022))
+lines(dlogwater.source[1:386], xlim=c(2017,2022))
 ```
 
 ### Q9 - Question ouverte
