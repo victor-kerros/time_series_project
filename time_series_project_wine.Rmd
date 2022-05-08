@@ -5,21 +5,28 @@
 ### Q1 - Présentation de la série
 
 ``` {r import packages}
+
 # on utilise "zoo" pour formaliser les séries temporelles
 #install.packages("zoo")
 require(zoo)
+
 # on utilise "tseries" pour diverses fonctions
 #install.packages("tseries")
 require(tseries)
+
 # on utilise "fUnitRoots" pour les tests de racine unitaire
 #install.packages("fUnitRoots")
 library(fUnitRoots)
+
+# on utilise "forecast" pour les prédictions
+#install.packages("forecast")
+require("forecast")
 ```
 
 Link : https://www.insee.fr/fr/statistiques/serie/010537307
 
 ``` {r import dataset}
-datafile <- "amy_valeurs_mensuelles.csv"
+datafile <- "water_valeurs_mensuelles.csv"
 data <- read.csv(datafile, sep=";")
 ```
 
@@ -28,7 +35,7 @@ string_dates <- as.character(data$dates)
 # premiere et la derniere date pour définir les indices des dates
 string_dates[1]; string_dates[length(string_dates)]
 # on définit les dates de la série
-dates <- as.yearmon(seq(from=1990+0/12, to=2022+1/12, by=1/12))
+dates <- as.yearmon(seq(from=1990+1/12, to=2022+3/12, by=1/12))
 ```
 
 ``` {r create ts wine and dwine with zoo}
@@ -132,6 +139,8 @@ biere = 9 lags
 petrole = 12 lags
 gas = 4 lags
 rocks = 12 lags
+amy = 2 lags
+water = 11 lags
 
 On constate alors que la série en niveau n'est pas stationnaire : le test ADF ne rejette pas l'hypothèse racine unitaire (p-value > 0.05). 
 On passe à la série en différence première ou intégrée d'ordre 1.
@@ -146,7 +155,7 @@ adf_dlogwine <- adfTest(dlogwine, lag=0, type="nc")
 Qtests(adf_dlogwine@test$lm$residuals, 24, length(adf_dlogwine@test$lm$coefficients))
 ```
 
-Non seulement, la série intégrée d'ordre 1 ne présente pas de tendance et de constante significative mais en plus elle vérifie l’absence autocorrélation des résidus.
+Non seulement, la série intégrée d'ordre 1 ne présente pas de tendance et de constante significative mais en plus elle vérifie l’absence autocorrélation des résidus à l'ordre 1.
 
 ```{r dlogwine adf test}
 adf <- adfTest_valid(dlogwine, 24, "nc")
@@ -162,8 +171,10 @@ biere = 8 lags
 petrole = 10 lags
 spirit = 7 lags
 gas = 3 lags
+amy = 1 lag
+water = 8 lags
 
-Le test ADF n'est pas rejeté, on retient son hypothèse alternative : la série est stationnaire. On détermine désormais pmax et qmax pour déterminer le modèle ARIMA.
+Le test ADF n'est pas rejeté avec un retard pour la série différenciée, on retient son hypothèse alternative : la série est stationnaire. On détermine désormais pmax et qmax pour déterminer le modèle ARIMA.
 
 ### Q3 - Représentation de la série avant et après transformation
 
@@ -191,13 +202,13 @@ qjuices = 15
 pjuices = 13
 
 qwater = 8
-pwater = 8
+pwater = 9
 
 qrocks = 1
 procks = 8
 
-qgas = 2
-pgas = 4 (16)
+qgas = 4
+pgas = 3
 
 qpharm = 12
 ppharm = 11
@@ -223,7 +234,7 @@ pbiere = 8
 On ignore les autocorrélations (partielles) pour les retards supérieurs à 20 dans l'objectif d'obtenir un modèle le plus simple possible.
 
 ``` {r pmax and qmax}
-pmax=1; qmax=3
+pmax=9; qmax=8
 ```
 
 ``` {r find valid models}
@@ -283,8 +294,8 @@ On compare les prédictions des modèles arma(1,1) (minimise l'AIC) et arma(0,1)
 
 ``` {r select model with best rmse}
 
-ar1ma1 <- arima(logwine, c(1,1,2), optim.control=list(maxit=20000))
-ma1 <- arima(logwine, c(0,1,3), optim.control=list(maxit=20000))
+ar1ma1 <- arima(logwine, c(9,1,7), optim.control=list(maxit=20000))
+ma1 <- arima(logwine, c(7,1,0), optim.control=list(maxit=20000))
 
 # on crée des séries pour les prédictions des deux modèles à tester
 models <- c("ar1ma1","ma1")
@@ -309,15 +320,18 @@ apply(logwinep, 2, function(x) sqrt(sum((x-obs)^2)/6)/sd(logwine.source))
 ### Q5 - Expression du modèle ARIMA retenu.
 
 ``` {r selected model}
-selected_model <- ma1
+selected_model <- ar1ma1
 selected_model
 ```
 
+On vérifie la significativité du coefficient.
+
 ``` {r check selected model}
-arima011 <- arima(logwine, c(0,1,1), include.mean=F)
+arima011 <- arima(logwine, c(9,1,7), include.mean=F)
 tarima011 <- arima011$coef / sqrt(diag(arima011$var.coef))
 pvarima011 <- (1-pnorm(abs(tarima011)))*2
-pvarima011["ma1"]
+pvarima011["ma7"]
+pvarima011["ar9"]
 Qtests(arima011$residuals, 24, fitdf=1)
 ```
 
@@ -335,9 +349,7 @@ plot(forecasts, , xlim=c(2018,2022), shadecols = "grey", fcol="blue", main = "In
 ```
 
 ``` {r forecasts}
-require("forecast")
-require("fpp2")
-prev <- forecast(arima011, h=2, level=0.95)
+prev <- forecast(arima011, h=6, level=0.95)
 plot(prev, xlim=c(2017,2022))
 lines(dlogwine.source[1:386], xlim=c(2017,2022))
 ```
