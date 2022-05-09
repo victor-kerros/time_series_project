@@ -89,7 +89,6 @@ On cherche à déterminer si la série est stationnaire ou non. Pour cela, on so
 # test ADF dans le cas avec constante et tendance
 adf_logwater <- adfTest(logwater, lag=0, type="ct")
 adf_logwater
-#pp.test(water)
 ```
 
 D'après le test ADF, la série en niveau est stationnaire. Seulement, pour que le test soit valide, il faut que les résidus de la régression ne soient pas autocorrélés.
@@ -173,7 +172,7 @@ acf(dlogwater); pacf(dlogwater)
 qwater = 8
 pwater = 9
 
-On ignore les autocorrélations (partielles) pour les retards supérieurs à 20 dans l'objectif d'obtenir un modèle le plus simple possible.
+On ignore les autocorrélations (partielles) pour les retards supérieurs à 20 dans l'objectif d'obtenir un modèle raisonnablement simplifié.
 
 ``` {r pmax and qmax}
 pmax=9; qmax=8
@@ -236,8 +235,9 @@ On compare les prédictions des modèles arma(1,1) (minimise l'AIC) et arma(0,1)
 
 ``` {r select model with best rmse}
 
-ar9ma7 <- arima(logwater, c(9,1,7), optim.control=list(maxit=20000))
-ar7 <- arima(logwater, c(7,1,0), optim.control=list(maxit=20000))
+# définition des deux modèles concurrents
+ar9ma7 <- arima(logwater, c(9,1,7), include.mean=F)
+ar7 <- arima(logwater, c(7,1,0), include.mean=F)
 
 # on crée des séries pour les prédictions des deux modèles à tester
 models <- c("ar9ma7","ar7")
@@ -269,12 +269,11 @@ selected_model
 On vérifie la significativité du coefficient.
 
 ``` {r check selected model}
-arima917 <- arima(logwater, c(9,1,7), include.mean=F)
-tarima917 <- arima917$coef / sqrt(diag(arima917$var.coef))
-pvarima917 <- (1-pnorm(abs(tarima917)))*2
-pvarima917["ma7"]
-pvarima917["ar9"]
-Qtests(arima917$residuals, 24, fitdf=1)
+tar9ma7 <- ar9ma7$coef / sqrt(diag(ar9ma7$var.coef))
+pvar9ma7 <- (1-pnorm(abs(tar9ma7)))*2
+pvar9ma7["ma7"]
+pvar9ma7["ar9"]
+Qtests(ar9ma7$residuals, 24, fitdf=1)
 ```
 
 ## Partie III : Prévisions
@@ -286,12 +285,14 @@ Qtests(arima917$residuals, 24, fitdf=1)
 ### Q8 - Représentation graphique de la région de confiance
 
 ``` {r forecasts}
-forecasts <- forecast(ar1ma1, h=4, level=0.95)
-plot(forecasts, , xlim=c(2018,2022), shadecols = "grey", fcol="blue", main = "intervalle de confiance (alpha = 0.95) pour T+1 et T+2")
+forecasts <- forecast(ar9ma7, h=2, level=0.95)
+plot(forecasts, , xlim=c(2018,2022), shadecols = "grey", fcol="red", main = "intervalle de confiance (alpha = 0.95) pour T+1 et T+2")
+par(new=T)
+plot(logwater.source, type="l", lwd=1, col="blue", xlim=c(2018,2022))
 ```
 
 ``` {r forecasts}
-prev <- forecast(arima011, h=6, level=0.95)
+prev <- forecast(ar9ma7, h=6, level=0.95)
 plot(prev, xlim=c(2017,2022))
 lines(dlogwater.source[1:386], xlim=c(2017,2022))
 ```

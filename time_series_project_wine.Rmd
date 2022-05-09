@@ -26,7 +26,7 @@ require("forecast")
 Link : https://www.insee.fr/fr/statistiques/serie/010537313
 
 ``` {r import dataset}
-datafile <- "water_valeurs_mensuelles.csv"
+datafile <- "clothes_valeurs_mensuelles.csv"
 data <- read.csv(datafile, sep=";")
 ```
 
@@ -141,6 +141,7 @@ gas = 4 lags
 rocks = 12 lags
 amy = 2 lags
 water = 11 lags
+clothes = 14 lags
 
 On constate alors que la série en niveau n'est pas stationnaire : le test ADF ne rejette pas l'hypothèse racine unitaire (p-value > 0.05). 
 On passe à la série en différence première ou intégrée d'ordre 1.
@@ -153,6 +154,7 @@ summary(lm(dlogwine ~ dates[2:(length(logwine.source)-6)]))
 # il n'y a pas de tendance ni de constante
 adf_dlogwine <- adfTest(dlogwine, lag=0, type="nc")
 Qtests(adf_dlogwine@test$lm$residuals, 24, length(adf_dlogwine@test$lm$coefficients))
+adf_dlogwine
 ```
 
 Non seulement, la série intégrée d'ordre 1 ne présente pas de tendance et de constante significative mais en plus elle vérifie l’absence autocorrélation des résidus à l'ordre 1.
@@ -173,6 +175,7 @@ spirit = 7 lags
 gas = 3 lags
 amy = 1 lag
 water = 8 lags
+clothes = 16 lags
 
 Le test ADF n'est pas rejeté avec un retard pour la série différenciée, on retient son hypothèse alternative : la série est stationnaire. On détermine désormais pmax et qmax pour déterminer le modèle ARIMA.
 
@@ -231,10 +234,16 @@ palim = 7
 qbiere = 2
 pbiere = 8
 
+qclothes = 7
+pclothes = 9
+
+qtextile = 2
+ptextile = 4
+
 On ignore les autocorrélations (partielles) pour les retards supérieurs à 20 dans l'objectif d'obtenir un modèle le plus simple possible.
 
 ``` {r pmax and qmax}
-pmax=9; qmax=8
+pmax=9; qmax=7
 ```
 
 ``` {r find valid models}
@@ -294,8 +303,10 @@ On compare les prédictions des modèles arma(1,1) (minimise l'AIC) et arma(0,1)
 
 ``` {r select model with best rmse}
 
-ar1ma1 <- arima(logwine, c(9,1,7), optim.control=list(maxit=20000))
-ma1 <- arima(logwine, c(7,1,0), optim.control=list(maxit=20000))
+#ar1ma1 <- arima(logwine, c(9,1,7), optim.control=list(maxit=20000))
+#ma1 <- arima(logwine, c(7,1,0), optim.control=list(maxit=20000))
+ar1ma1 <- arima(logwine, c(0,1,7), optim.control=list(maxit=20000))
+ma1 <- arima(logwine, c(5,1,0), optim.control=list(maxit=20000))
 
 # on crée des séries pour les prédictions des deux modèles à tester
 models <- c("ar1ma1","ma1")
@@ -320,7 +331,7 @@ apply(logwinep, 2, function(x) sqrt(sum((x-obs)^2)/6)/sd(logwine.source))
 ### Q5 - Expression du modèle ARIMA retenu.
 
 ``` {r selected model}
-selected_model <- ar1ma1
+selected_model <- ma1
 selected_model
 ```
 
@@ -344,7 +355,7 @@ Qtests(arima011$residuals, 24, fitdf=1)
 ### Q8 - Représentation graphique de la région de confiance
 
 ``` {r forecasts}
-forecasts <- forecast(ar1ma1, h=2, level=c(95))
+forecasts <- forecast(ma1, h=2, level=c(95))
 plot(forecasts, , xlim=c(2018,2022), shadecols = "grey", fcol="blue", main = "Intervalles de confiance à 95% pour T+1 et T+2")
 ```
 
