@@ -55,43 +55,31 @@ dfertilizer <- diff(fertilizer, 1)
 ```
 
 ```{r plot and decompose fertilizer.source}
-plot(fertilizer.source, type="l", lwd=1, col="blue", main="fabrication d'engrais et produits azotés", xlab="dates", ylab="values" )
+plot(fertilizer.source, type="l", lwd=1, col="blue", main="fabrication d'engrais et produits azotés", xlab="dates", ylab="values")
 decompose_fertilizer.source <- decompose(fertilizer.source)
-plot(decompose_fertilizer.source)
+plot(decompose_fertilizer.source, col="blue", xlab="dates")
 ```
 
 ### Q2 - Stationnarisation de la série
-
-On constate plusieurs choses : une tendance et de l'hétéroscédasticité.
-
-Pour rendre la série stationnaire, on lisse d'abord l'hétéroscédasticité en passant au log.
-
-``` {r log}
-# on passe au log pour lisser l'hétéroscédasticité
-logfertilizer.source <- log(fertilizer.source)
-decompose_logfertilizer.source <- decompose(logfertilizer.source)
-plot(decompose_logfertilizer.source)
-plot(logfertilizer.source, type="l", lwd=1, col="blue", main="logfertilizer.source", xlab="dates", ylab="values")
-```
 
 On constate sur le graphique ci-dessus une tendance linéaire positive pour la série en niveau.
 
 On vérifie d'abord la tendance linéaire en effectuant une régression linéaire des valeurs de la série tronquée sur les dates.
 
 ```{r lm}
-truncated_dates <- dates[1:(length(logfertilizer.source)-6)]
-logfertilizer <- logfertilizer.source[1:(length(logfertilizer.source)-6)]
-summary(lm(logfertilizer ~ truncated_dates))
+truncated_dates <- dates[1:(length(fertilizer.source)-6)]
+fertilizer <- fertilizer.source[1:(length(fertilizer.source)-6)]
+summary(lm(fertilizer ~ truncated_dates))
 ```
 
-Cette régression linéaire confirme la présence d'une tendance linéaire positive dans nos données et d'une constante : p_values < 1 %.
+Cette régression linéaire confirme la présence d'une tendance linéaire négative dans nos données et d'une constante : p_values < 1 %.
 
-On cherche à déterminer si la série est stationnaire ou non. Pour cela, on souhaite effectuer un test de racine unitaire ADF dont l'hypothèse H1 est la stationnarité de la série. On effectue bien le test ADF dans le cas avec constante et tendance.
+On cherche à déterminer si la série est stationnaire ou non. Pour cela, on réalise un test de racine unitaire ADF dont l'hypothèse H1 est la stationnarité de la série. On effectue bien le test ADF dans le cas avec constante et tendance.
 
-```{r logfertilizer adf test}
+```{r fertilizer adf test}
 # test ADF dans le cas avec constante et tendance
-adf_logfertilizer <- adfTest(logfertilizer, lag=0, type="ct")
-adf_logfertilizer
+adf_fertilizer <- adfTest(fertilizer, lag=0, type="ct")
+adf_fertilizer
 ```
 
 D'après le test ADF, la série en niveau est stationnaire. Seulement, pour que le test soit valide, il faut que les résidus de la régression ne soient pas autocorrélés.
@@ -107,13 +95,13 @@ Qtests <- function(series, k, fitdf=0){
   return(t(pvals))
 }
 
-Qtests(adf_logfertilizer@test$lm$residuals, 24, length(adf_logfertilizer@test$lm$coefficients))
+Qtests(adf_fertilizer@test$lm$residuals, 24, length(adf_fertilizer@test$lm$coefficients))
 ```
 
 L’absence d’autocorrélation des résidus est rejetée, le test ADF avec aucun
 retard n’est donc pas valide. On ajoute alors des retards jusqu’à ce que les résidus ne soient plus autocorrélés à l'aide de la fonction ci-dessous.
 
-```{r logfertilizer adf test : cf. TD5}
+```{r fertilizer adf test : cf. TD5}
 adfTest_valid <- function(series,kmax,type){ 
 # tests ADF jusqu’à des résidus non autocorrélés
 k <- 0
@@ -130,37 +118,45 @@ k <- k + 1
 return(adf)
 }
 
-adf <- adfTest_valid(logfertilizer, 24, "ct")
+adf <- adfTest_valid(fertilizer, 24, "ct")
 adf
 ```
 
-On constate alors que la série en niveau n'est pas stationnaire : le test ADF ne rejette pas l'hypothèse racine unitaire (p-value > 0.05) i.e. de non stationnarité de la série. 
+Avec six retards, les résidus ne sont plus autocorrélés. On constate alors que la série en niveau n'est pas stationnaire : le test ADF ne rejette pas l'hypothèse racine unitaire (p-value > 0.05) i.e. de non stationnarité de la série. 
 On passe à la série en différence première ou intégrée d'ordre 1.
 
-```{r dlogfertilizer adf test}
-dlogfertilizer.source <- diff(logfertilizer.source, 1)
-dlogfertilizer <- diff(logfertilizer, 1)
-plot(dlogfertilizer.source, type="l", lwd=1, col="blue", main="dlogfertilizer.source", xlab="dates", ylab="values")
-summary(lm(dlogfertilizer ~ dates[2:(length(logfertilizer.source)-6)]))
+```{r dfertilizer adf test}
+# création et représentation de dfertilizer
+dfertilizer.source <- diff(fertilizer.source, 1)
+dfertilizer <- diff(fertilizer, 1)
+plot(dfertilizer.source, type="l", lwd=1, col="blue", main="série différenciée à l'ordre 1", xlab="dates", ylab="values")
+
 # il n'y a pas de tendance ni de constante
-adf_dlogfertilizer <- adfTest(dlogfertilizer, lag=0, type="nc")
-Qtests(adf_dlogfertilizer@test$lm$residuals, 24, length(adf_dlogfertilizer@test$lm$coefficients))
+summary(lm(dfertilizer ~ dates[2:(length(fertilizer.source)-6)]))
+
+# test DF
+adf_dfertilizer <- adfTest(dfertilizer, lag=0, type="nc")
+adf_dfertilizer
+
+# autocorrélation des résidus
+Qtests(adf_dfertilizer@test$lm$residuals, 24, length(adf_dfertilizer@test$lm$coefficients))
 ```
 
-Non seulement, la série intégrée d'ordre 1 ne présente pas de tendance et de constante significative mais en plus elle vérifie l’absence autocorrélation des résidus avec seize retards ce qui permet d'effectuer le test de Dickey Fuller.
+Non seulement, la série intégrée d'ordre 1 ne présente pas de tendance et de constante significative (p-valeurs > 0.7) mais en plus elle vérifie l’absence autocorrélation des résidus ce qui permet d'effectuer le test de Dickey Fuller.
 
-```{r dlogfertilizer adf test}
-adf <- adfTest_valid(dlogfertilizer, 24, "nc")
+```{r dfertilizer adf test}
+adf <- adfTest_valid(dfertilizer, 24, "nc")
 adf
 ```
 
 Le test ADF n'est pas rejeté avec cinq retards pour la série différenciée, on retient son hypothèse alternative : la série est stationnaire. 
+
 On détermine désormais pmax et qmax pour évaluer le modèle ARIMA(p,1,q) adéquat.
 
 ### Q3 - Représentation de la série avant et après transformation
 
-``` {r plot fertilizer and dlogfertilizer}
-plot(cbind(fertilizer.source,dlogfertilizer.source))
+``` {r plot fertilizer and dfertilizer}
+plot(cbind(fertilizer.source,dfertilizer.source), type="l", lwd=1, col="blue", main="séries en niveau (haut) et intégrée à l'ordre 1 (bas)", xlab="dates", ylab="values")
 ```
 
 ## Partie 2 : Modèles ARMA
@@ -169,15 +165,16 @@ plot(cbind(fertilizer.source,dlogfertilizer.source))
 
 On détermine d'abord pmax et qmax.
 
-``` {r acf and pacf dlogfertilizer}
-acf(dlogfertilizer); pacf(dlogfertilizer)
+``` {r acf and pacf dfertilizer}
+acf(dfertilizer)
+pacf(dfertilizer)
 ```
 
 On ignore les autocorrélations (partielles) pour les retards supérieurs strictement à 15 dans l'objectif d'obtenir un modèle raisonnablement simplifié.
 Dans notre cas, il n'y en a pas quand bien même on note la présence d'autocorrélations persistantes mais non significatives tous les six mois.
 
 ``` {r pmax and qmax}
-pmax=15; qmax=1
+pmax=6; qmax=7
 ```
 
 
@@ -194,7 +191,7 @@ signif <- function(estim){
 }
 
 # fonction pour estimer un arima et en vérifier l’ajustement et la validité
-modelchoice <- function(p, q, data=dlogfertilizer, k=24){
+modelchoice <- function(p, q, data=dfertilizer, k=24){
   estim <- try(arima(data, c(p,0,q),optim.control=list(maxit=20000)))
   if (class(estim)=="try-error") return(c("p"=p,"q"=q,"arsignif"=NA,"masignif"=NA,"resnocorr"=NA, "ok"=NA))
   arsignif <- if (p==0) NA else signif(estim)[3,p]<=0.05
@@ -231,44 +228,44 @@ list("p"=as.numeric(row[1]), "q"=as.numeric(row[2])))
 names(pqs) <- paste0("arma(", selec[,1], ",", selec[,2],")")
 
 # on crée la liste des modèles arma(p,q)
-models <- lapply(pqs, function(pq) arima(dlogfertilizer, c(pq[["p"]], 0, pq[["q"]])))
+models <- lapply(pqs, function(pq) arima(dfertilizer, c(pq[["p"]], 0, pq[["q"]])))
 
 # on calcule les AIC et BIC des modèles possibles
 vapply(models, FUN.VALUE=numeric(2), function(m) c("AIC"=AIC(m),"BIC"=BIC(m)))
 ```
 
-On compare les prédictions des modèles arma(2,1) (minimise l'AIC) et arma(1,1) (minimise le BIC) avec le RMSE.
+On compare les prédictions des modèles arima(2,1,1) (minimise l'AIC) et arma(6,1,7) (minimise le BIC) avec le RMSE (Root Mean Squared Error).
 
 ``` {r select model with best rmse}
 
 # définition des deux modèles concurrents
-ar1ma2 <- arima(fertilizer, c(1,1,2), include.mean=F)
-ar1ma1 <- arima(fertilizer, c(1,1,1), include.mean=F)
+ar6ma7 <- arima(fertilizer, c(6,1,7), include.mean=F)
+ar2ma1 <- arima(fertilizer, c(2,1,1), include.mean=F)
 
 # on crée des séries pour les prédictions des deux modèles à tester
-models <- c("ar1ma2","ar1ma1")
+models <- c("ar6ma7","ar2ma1")
 preds <- zoo(matrix(NA, ncol=2, nrow=6), order.by=tail(index(fertilizer.source), 6))
 colnames(preds) <- models
-logfertilizerp <- preds
+fertilizerp <- preds
 
 # on remplit la série avec les prédictions des modèles
 for (model in models){
 pred <- zoo(predict(get(model), 6)$pred, order.by=tail(index(fertilizer.source), 6))
-logfertilizerp[, model] <- pred
+fertilizerp[, model] <- pred
 }
 
 # on affiche les valeurs observées et les prédictions
 obs <- tail(fertilizer.source, 6)
-cbind(obs, logfertilizerp)
+cbind(obs, fertilizerp)
 
 # on calcule les rmse
-apply(logfertilizerp, 2, function(x) sqrt(sum((x-obs)^2)/6)/sd(fertilizer.source))
+apply(fertilizerp, 2, function(x) sqrt(sum((x-obs)^2)/6)/sd(fertilizer.source))
 ```
 
 ### Q5 - Expression du modèle ARIMA retenu.
 
 ``` {r selected model}
-selected_model <- ar1ma1
+selected_model <- ar2ma1
 selected_model
 ```
 
@@ -277,13 +274,13 @@ On vérifie la significativité du coefficient.
 ``` {r check selected model}
 
 # test de significativité des coefficients
-tar1ma1 <- ar1ma1$coef / sqrt(diag(ar1ma1$var.coef))
-pvar1ma1 <- (1-pnorm(abs(tar1ma1)))*2
-pvar1ma1["ma1"]
-pvar1ma1["ar1"]
+tar2ma1 <- ar2ma1$coef / sqrt(diag(ar2ma1$var.coef))
+pvar2ma1 <- (1-pnorm(abs(tar2ma1)))*2
+pvar2ma1["ma1"]
+pvar2ma1["ar2"]
 
 # test de non auto-corrélation des résidus
-Qtests(ar1ma1$residuals, 12, fitdf=1)
+Qtests(ar2ma1$residuals, 24, fitdf=1)
 
 ```
 
@@ -291,17 +288,27 @@ Qtests(ar1ma1$residuals, 12, fitdf=1)
 
 ### Q6 - Région de confiance pour les valeurs futures t+1 et t+2
 
+Voir le rapport PDF.
+
 ### Q7 - Hypothèses pour la région de confiance
+
+Voir le rapport PDF.
 
 ### Q8 - Représentation graphique de la région de confiance
 
+On réalise les prédictions pour les mois d'octobre et novembre 2021. Les zones en gris clair représentent les intervalles de confiance à 95% et les points rouges les prédictions.
+
 ``` {r forecasts}
-forecasts <- forecast(ar1ma1, h=2, level=0.95)
-plot(forecasts, xlim=c(2018,2022), shadecols = "grey", fcol="red", main = "intervalle de confiance (alpha = 0.95) pour T+1 et T+2")
+forecasts <- forecast(ar1ma1, h=6, level=0.95)
+plot(forecasts, xlim=c(2018,2022), shadecols = "grey", fcol="red", main = "intervalles de confiance (alpha = 0.95) pour T+1 à T+6")
 par(new=T)
 plot(fertilizer.source, type="l", lwd=1, col="blue", xlim=c(2018,2022))
 ```
 
+Les prédictions ne sont pas excellentes mais ont le mérite de suivre une tendance haussière conformément à la réalité.
+
 ### Q9 - Question ouverte
+
+Voir le rapport PDF.
 
 
